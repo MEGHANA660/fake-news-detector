@@ -2,44 +2,13 @@ import streamlit as st
 import pickle
 import nltk
 import numpy as np
-import os
 from nltk.tokenize import sent_tokenize
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.linear_model import PassiveAggressiveClassifier
-from sklearn.model_selection import train_test_split
 
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
-@st.cache_resource
-def load_model():
-    if not os.path.exists("model/model.pkl"):
-        st.info("⏳ Training model for first time... please wait 2-3 minutes!")
-
-        from datasets import load_dataset
-        dataset = load_dataset("GonzaloA/fake_news")
-        df = dataset["train"].to_pandas()
-        df = df.dropna(subset=["text", "label"])
-
-        X_train, _, y_train, _ = train_test_split(
-            df["text"], df["label"], test_size=0.2, random_state=42
-        )
-
-        vectorizer = TfidfVectorizer(max_df=0.7, stop_words='english')
-        X_train_vec = vectorizer.fit_transform(X_train)
-
-        model = PassiveAggressiveClassifier(max_iter=50)
-        model.fit(X_train_vec, y_train)
-
-        os.makedirs("model", exist_ok=True)
-        pickle.dump(model, open("model/model.pkl", "wb"))
-        pickle.dump(vectorizer, open("model/vectorizer.pkl", "wb"))
-
-    model = pickle.load(open("model/model.pkl", "rb"))
-    vectorizer = pickle.load(open("model/vectorizer.pkl", "rb"))
-    return model, vectorizer
-
-model, vectorizer = load_model()
+model      = pickle.load(open("model/model.pkl", "rb"))
+vectorizer = pickle.load(open("model/vectorizer.pkl", "rb"))
 
 def get_fake_score(sentence):
     vec   = vectorizer.transform([sentence])
