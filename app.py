@@ -3,34 +3,34 @@ import pickle
 import nltk
 import numpy as np
 import os
-import pandas as pd
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import PassiveAggressiveClassifier
+from sklearn.model_selection import train_test_split
 
 nltk.download('punkt')
 nltk.download('punkt_tab')
 
-# ---- Train and save model if not already saved ----
 @st.cache_resource
 def load_model():
     if not os.path.exists("model/model.pkl"):
-        st.info("Training model for first time... please wait!")
-        real = pd.read_csv("data/archive/True.csv")
-        fake = pd.read_csv("data/archive/Fake.csv")
-        real["label"] = 0
-        fake["label"] = 1
-        df = pd.concat([real, fake]).sample(frac=1).reset_index(drop=True)
-        df["text"] = df["title"] + " " + df["text"]
+        st.info("⏳ Training model for first time... please wait 2-3 minutes!")
 
-        from sklearn.model_selection import train_test_split
+        from datasets import load_dataset
+        dataset = load_dataset("GonzaloA/fake_news")
+        df = dataset["train"].to_pandas()
+        df = df.dropna(subset=["text", "label"])
+
         X_train, _, y_train, _ = train_test_split(
             df["text"], df["label"], test_size=0.2, random_state=42
         )
+
         vectorizer = TfidfVectorizer(max_df=0.7, stop_words='english')
         X_train_vec = vectorizer.fit_transform(X_train)
+
         model = PassiveAggressiveClassifier(max_iter=50)
         model.fit(X_train_vec, y_train)
+
         os.makedirs("model", exist_ok=True)
         pickle.dump(model, open("model/model.pkl", "wb"))
         pickle.dump(vectorizer, open("model/vectorizer.pkl", "wb"))
@@ -41,14 +41,12 @@ def load_model():
 
 model, vectorizer = load_model()
 
-# ---- Function to get fake % ----
 def get_fake_score(sentence):
     vec   = vectorizer.transform([sentence])
     score = model.decision_function(vec)[0]
     prob  = 1 / (1 + np.exp(-score))
     return round(prob * 100, 2)
 
-# ---- UI ----
 st.set_page_config(page_title="Fake News Detector", page_icon="📰")
 st.title("📰 Fake News Detector")
 st.write("Paste any news article below. Each sentence will be checked for fake content.")
